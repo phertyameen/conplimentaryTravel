@@ -9,8 +9,8 @@ import { cooperatorConfirmationTemplate } from './templates/cooperator-confirmat
 import { leadwayNotificationTemplate } from './templates/leadway-notification.template';
 
 // recipient list
-const LEADWAY_TO = 'f-aminu@leadway.com';
-const LEADWAY_CC = 'b-simon@leadway.com';
+const LEADWAY_TO = 'c-ogweh@leadway.com';
+const LEADWAY_CC = 'j-okon@leadway.com';
 const LEADWAY_BCC = 'i-popoola@leadway.com, e-muhammed@leadway.com';
 
 @Injectable()

@@ -32,7 +32,7 @@ import databaseConfig from './config/database.config';
         synchronize: config.get<boolean>("database.synchronize"),
         autoLoadEntities: config.get<boolean>("database.autoload"),
         options: {
-          encrypt: false,
+          encrypt: true,
           enableArithAbort: true,
           trustServerCertificate: true,
         },
