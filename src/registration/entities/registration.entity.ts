@@ -17,13 +17,13 @@ export class RegistrationEntity {
 
   // SECTION 1: COOPERATOR
 
-  @Column({ name: 'cooperator_full_name', length: 255, nullable: true })
+  @Column({ name: 'cooperator_full_name', length: 255 })
   cooperatorFullName: string;
 
-  @Column({ name: 'cooperator_email', length: 255, nullable: true })
+  @Column({ name: 'cooperator_email', length: 255 })
   cooperatorEmail: string;
 
-  @Column({ name: 'cooperator_scheme_name', length: 255, nullable: true })
+  @Column({ name: 'cooperator_scheme_name' })
   cooperatorSchemeName: string;
 
   // SECTION 2: TRAVELERS
