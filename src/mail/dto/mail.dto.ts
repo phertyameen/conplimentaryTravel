@@ -7,8 +7,10 @@ export interface TravelerMailData {
   destinations: string[];
   departureDate: string;
   returnDate: string;
-  passportFileUrl: string;
+  passportFileUrl?: string;
   passportFileName: string;
+  passportFileExt: string;
+  passportBuffer: Buffer;
 }
 
 export interface CooperatorConfirmationMailDto {

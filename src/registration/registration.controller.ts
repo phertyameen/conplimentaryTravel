@@ -101,7 +101,7 @@ export class RegistrationController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Validation error — see errors array for details.',
+    description: 'Validation error - see errors array for details.',
   })
   @ApiResponse({ status: 500, description: 'Internal server error.' })
   async create(

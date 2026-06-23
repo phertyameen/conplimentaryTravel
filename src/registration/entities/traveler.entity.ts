@@ -44,10 +44,6 @@ export class TravelerEntity {
   @Column({ name: 'return_date', type: 'date' })
   returnDate: string;
 
-  // URL/path to the stored passport file
-  @Column({ name: 'passport_file_url', length: 1000 })
-  passportFileUrl: string;
-
   // Original uploaded filename for display in emails
   @Column({ name: 'passport_file_name', length: 255 })
   passportFileName: string;

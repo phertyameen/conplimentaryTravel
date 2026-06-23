@@ -1,7 +1,10 @@
 import { LeadwayNotificationMailDto, TravelerMailData } from '../dto/mail.dto';
 
 function travelerTable(traveler: TravelerMailData): string {
-  const label = traveler.travelerIndex === 0 ? 'Primary Traveler' : `Traveler ${traveler.travelerIndex + 1}`;
+  const label =
+    traveler.travelerIndex === 0
+      ? 'Primary Traveler'
+      : `Traveler ${traveler.travelerIndex + 1}`;
 
   return `
     <h3 style="margin-top: 24px; color: #E65C00;">${label}: ${traveler.fullName}</h3>
@@ -36,7 +39,7 @@ function travelerTable(traveler: TravelerMailData): string {
       </tr>
       <tr>
         <td><strong>Passport Data Page</strong></td>
-        <td><a href="${traveler.passportFileUrl}" target="_blank">View / Download</a></td>
+        <td>See attached file: ${traveler.passportFileName}</td>
       </tr>
     </table>
   `;
@@ -45,9 +48,12 @@ function travelerTable(traveler: TravelerMailData): string {
 function attachmentsSection(travelers: TravelerMailData[]): string {
   const rows = travelers
     .map((t) => {
-      const label = t.travelerIndex === 0 ? 'Primary Traveler' : `Traveler ${t.travelerIndex + 1}`;
+      const label =
+        t.travelerIndex === 0
+          ? 'Primary Traveler'
+          : `Traveler ${t.travelerIndex + 1}`;
       const ext = t.passportFileName.split('.').pop()?.toUpperCase() ?? 'FILE';
-      return `<li>${label} — ${t.fullName} — ${ext} — <a href="${t.passportFileUrl}">${t.passportFileName}</a></li>`;
+      return `<li>${label} - ${t.fullName} - ${ext} - ${t.passportFileName} (attached)</li>`;
     })
     .join('');
 
@@ -57,13 +63,15 @@ function attachmentsSection(travelers: TravelerMailData[]): string {
   `;
 }
 
-export function leadwayNotificationTemplate(data: LeadwayNotificationMailDto): string {
+export function leadwayNotificationTemplate(
+  data: LeadwayNotificationMailDto,
+): string {
   const travelersHtml = data.travelers.map(travelerTable).join('');
 
   return `
     <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; color: #333;">
       <div style="background-color: #E65C00; padding: 20px; text-align: center;">
-        <h2 style="color: #ffffff; margin: 0;">Leadway Assurance — New Submission</h2>
+        <h2 style="color: #ffffff; margin: 0;">Leadway Assurance - New Submission</h2>
       </div>
 
       <div style="padding: 30px 20px;">

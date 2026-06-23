@@ -44,17 +44,17 @@ export class TravelerDto {
   @Transform(({ value }) => (typeof value === 'string' ? [value] : value))
   destinations: string[];
 
-  @ApiProperty({ example: '2026-08-01', description: 'ISO date string — today or future date' })
+  @ApiProperty({ example: '2026-08-01', description: 'ISO date string - today or future date' })
   @IsDateString({}, { message: 'Departure date must be a valid date (YYYY-MM-DD)' })
   @IsNotEmpty({ message: 'Departure date is required' })
   departureDate: string;
 
-  @ApiProperty({ example: '2026-08-15', description: 'ISO date string — must be after departure date' })
+  @ApiProperty({ example: '2026-08-15', description: 'ISO date string - must be after departure date' })
   @IsDateString({}, { message: 'Return date must be a valid date (YYYY-MM-DD)' })
   @IsNotEmpty({ message: 'Return date is required' })
   returnDate: string;
 
-  // Passport file is handled separately via Multer — not part of JSON DTO
+  // Passport file is handled separately via Multer - not part of JSON DTO
   // File URL is populated by the upload service before DB persistence
   @IsOptional()
   passportFileUrl?: string;

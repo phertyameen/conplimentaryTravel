@@ -37,7 +37,6 @@ export class RegistrationService {
     dto: CreateRegistrationDto,
     passportFiles: Express.Multer.File[],
   ): Promise<{ referenceNumber: string }> {
-
     // 1. Validate traveler count vs uploaded files
     if (passportFiles.length !== dto.travelers.length) {
       throw new BadRequestException(
@@ -49,11 +48,10 @@ export class RegistrationService {
     this.validateTravelerDates(dto);
 
     // 3. Validate & store all passport files
-    let storedFiles: Array<{ url: string; fileName: string }>;
     try {
-      storedFiles = await this.uploadService.validateAndStoreMany(passportFiles);
+      this.uploadService.validateMany(passportFiles);
     } catch (error) {
-      throw error; // BadRequestException from UploadService — propagate as-is
+      throw error;
     }
 
     // 4. Generate unique reference number
@@ -69,44 +67,49 @@ export class RegistrationService {
         cooperatorSchemeName: dto.cooperatorSchemeName,
       });
 
-      const travelers: TravelerEntity[] = dto.travelers.map((travelerDto, index) => {
-        const traveler = this.travelerRepo.create({
-          travelerIndex: index,
-          fullName: travelerDto.fullName,
-          email: travelerDto.email,
-          phone: travelerDto.phone,
-          residentialAddress: travelerDto.residentialAddress,
-          destinations: JSON.stringify(travelerDto.destinations),
-          departureDate: travelerDto.departureDate,
-          returnDate: travelerDto.returnDate,
-          passportFileUrl: storedFiles[index].url,
-          passportFileName: storedFiles[index].fileName,
-        });
-        return traveler;
-      });
+      const travelers: TravelerEntity[] = dto.travelers.map(
+        (travelerDto, index) => {
+          const traveler = this.travelerRepo.create({
+            travelerIndex: index,
+            fullName: travelerDto.fullName,
+            email: travelerDto.email,
+            phone: travelerDto.phone,
+            residentialAddress: travelerDto.residentialAddress,
+            destinations: JSON.stringify(travelerDto.destinations),
+            departureDate: travelerDto.departureDate,
+            returnDate: travelerDto.returnDate,
+            passportFileName: passportFiles[index].originalname,
+          });
+          return traveler;
+        },
+      );
 
       registration.travelers = travelers;
       savedRegistration = await this.registrationRepo.save(registration);
     } catch (error) {
-      // Cleanup stored files if DB save fails
-      this.logger.error('DB save failed — cleaning up uploaded files', error);
-      await Promise.all(storedFiles.map((f) => this.storageService.delete(f.url)));
-      throw new InternalServerErrorException('Registration could not be saved. Please try again.');
+      this.logger.error('DB save failed', error);
+      throw new InternalServerErrorException(
+        'Registration could not be saved. Please try again.',
+      );
     }
 
     // ── 6. Build traveler mail data ───────────────────────────────────────
-    const travelerMailData: TravelerMailData[] = savedRegistration.travelers.map((t) => ({
-      travelerIndex: t.travelerIndex,
-      fullName: t.fullName,
-      email: t.email,
-      phone: t.phone,
-      residentialAddress: t.residentialAddress,
-      destinations: JSON.parse(t.destinations),
-      departureDate: t.departureDate,
-      returnDate: t.returnDate,
-      passportFileUrl: t.passportFileUrl,
-      passportFileName: t.passportFileName,
-    }));
+    const travelerMailData: TravelerMailData[] =
+      savedRegistration.travelers.map((t, index) => ({
+        travelerIndex: t.travelerIndex,
+        fullName: t.fullName,
+        email: t.email,
+        phone: t.phone,
+        residentialAddress: t.residentialAddress,
+        destinations: JSON.parse(t.destinations),
+        departureDate: t.departureDate,
+        returnDate: t.returnDate,
+        passportFileName: t.passportFileName,
+        passportFileExt: passportFiles[index].originalname.substring(
+          passportFiles[index].originalname.lastIndexOf('.'),
+        ),
+        passportBuffer: passportFiles[index].buffer,
+      }));
 
     // ── 7. Generate Excel attachment ──────────────────────────────────────
     const excelBuffer = await this.exportService.generateRegistrationExcel({
@@ -120,7 +123,7 @@ export class RegistrationService {
 
     const excelFileName = `Registration-${referenceNumber}.xlsx`;
 
-    // ── 8. Send emails (non-blocking — DB record already safe) ────────────
+    // 8. Send emails (non-blocking - DB record already safe)
     await Promise.allSettled([
       // FRD 3: Cooperator confirmation
       this.mailService.sendCooperatorConfirmation({
@@ -186,6 +189,8 @@ export class RegistrationService {
       });
       if (!exists) return ref;
     }
-    throw new InternalServerErrorException('Could not generate a unique reference number. Please try again.');
+    throw new InternalServerErrorException(
+      'Could not generate a unique reference number. Please try again.',
+    );
   }
 }

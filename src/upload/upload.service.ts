@@ -36,6 +36,13 @@ export class UploadService {
     );
   }
 
+  validateMany(files: Express.Multer.File[]): void {
+    files.forEach((file, index) => {
+      this.validateMimeType(file, index);
+      this.validateFileSize(file, index);
+    });
+  }
+
   // Private Helpers
   private validateMimeType(file: Express.Multer.File, index: number): void {
     if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {

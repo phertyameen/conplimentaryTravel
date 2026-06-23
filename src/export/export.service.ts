@@ -17,8 +17,8 @@ export class ExportService {
 
   /**
    * Generates an Excel workbook buffer with two sheets:
-   * Sheet 1 — Cooperator Details
-   * Sheet 2 — Traveler Details (all travelers)
+   * Sheet 1 Cooperator Details
+   * Sheet 2 Traveler Details (all travelers)
    */
   async generateRegistrationExcel(payload: ExcelPayload): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();

@@ -9,9 +9,9 @@ import { cooperatorConfirmationTemplate } from './templates/cooperator-confirmat
 import { leadwayNotificationTemplate } from './templates/leadway-notification.template';
 
 // recipient list
-const LEADWAY_TO = 'c-ogweh@leadway.com';
-const LEADWAY_CC = 'j-okon@leadway.com';
-const LEADWAY_BCC = 'i-popoola@leadway.com, e-muhammed@leadway.com';
+const LEADWAY_TO = 'f-aminu@leadway.com';
+const LEADWAY_CC = '';
+const LEADWAY_BCC = '';
 
 @Injectable()
 export class MailService {
@@ -47,7 +47,9 @@ export class MailService {
         html: cooperatorConfirmationTemplate(dto),
       });
 
-      this.logger.log(`Cooperator confirmation email sent to ${dto.cooperatorEmail} | messageId: ${info.messageId}`);
+      this.logger.log(
+        `Cooperator confirmation email sent to ${dto.cooperatorEmail} | messageId: ${info.messageId}`,
+      );
     } catch (error) {
       // Non-fatal: DB record already saved; log and continue
       this.logger.error(
@@ -83,10 +85,16 @@ export class MailService {
             contentType:
               'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           },
+          ...dto.travelers.map((traveler, index) => ({
+            filename: `Traveler_${index + 1}_${traveler.fullName}_passport${traveler.passportFileExt}`,
+            content: traveler.passportBuffer,
+          })),
         ],
       });
 
-      this.logger.log(`Leadway notification email sent. Ref: ${dto.referenceNumber} | messageId: ${info.messageId}`);
+      this.logger.log(
+        `Leadway notification email sent. Ref: ${dto.referenceNumber} | messageId: ${info.messageId}`,
+      );
     } catch (error) {
       this.logger.error(
         `Failed to send Leadway notification email. Ref: ${dto.referenceNumber}`,

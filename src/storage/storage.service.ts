@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
  * StorageService is the single abstraction layer for file persistence.
  *
  * Currently implemented as local disk storage.
- * To switch to Azure Blob, AWS S3, or GCS — replace only the `save` method body.
+ * To switch to Azure Blob, AWS S3, or GCS - replace only the `save` method body.
  * All callers (UploadService) remain unchanged.
  */
 @Injectable()
