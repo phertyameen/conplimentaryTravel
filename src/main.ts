@@ -2,6 +2,7 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger"
 import { ValidationPipe, Logger, ClassSerializerInterceptor } from "@nestjs/common"
+import { GlobalExceptionFilter } from './common/global-exception.filter';
 
 async function bootstrap() {
   const logger = new Logger("Bootstrap")
@@ -39,6 +40,7 @@ async function bootstrap() {
       }),
     )
 
+    app.useGlobalFilters(new GlobalExceptionFilter());
     app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
 
     await app.listen(port)

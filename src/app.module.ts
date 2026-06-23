@@ -4,6 +4,11 @@ import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import appConfig from './config/app.config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { RegistrationModule } from './registration/registration.module';
+import { UploadModule } from './upload/upload.module';
+import { MailModule } from './mail/mail.module';
+import { StorageModule } from './storage/storage.module';
+import { ExportModule } from './export/export.module';
 import databaseConfig from './config/database.config';
 
 @Module({
@@ -27,9 +32,9 @@ import databaseConfig from './config/database.config';
         synchronize: config.get<boolean>("database.synchronize"),
         autoLoadEntities: config.get<boolean>("database.autoload"),
         options: {
-          encrypt: true,
+          encrypt: false,
           enableArithAbort: true,
-          trustServerCertificate: false,
+          trustServerCertificate: true,
         },
         extra: {
           instanceName: config.get<string>("database.instanceName"),
@@ -37,6 +42,16 @@ import databaseConfig from './config/database.config';
         // logging: ['query', 'error']
       }),
     }),
+
+    RegistrationModule,
+
+    UploadModule,
+
+    MailModule,
+
+    StorageModule,
+
+    ExportModule,
   ],
   controllers: [AppController],
   providers: [AppService],
