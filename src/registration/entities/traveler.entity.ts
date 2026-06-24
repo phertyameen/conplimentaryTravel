@@ -12,9 +12,13 @@ export class TravelerEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => RegistrationEntity, (registration) => registration.travelers, {
-    onDelete: 'CASCADE',
-  })
+  @ManyToOne(
+    () => RegistrationEntity,
+    (registration) => registration.travelers,
+    {
+      onDelete: 'CASCADE',
+    },
+  )
   @JoinColumn({ name: 'registration_id' })
   registration: RegistrationEntity;
 
@@ -44,7 +48,11 @@ export class TravelerEntity {
   @Column({ name: 'return_date', type: 'date' })
   returnDate: string;
 
-  // Original uploaded filename for display in emails
+  // Azure Blob Storage public URL for the passport file
+  @Column({ name: 'passport_file_url', type: 'nvarchar', length: 1000 })
+  passportFileUrl: string;
+
+  // Original filename e.g. "john_doe_passport.pdf"
   @Column({ name: 'passport_file_name', length: 255 })
   passportFileName: string;
 }

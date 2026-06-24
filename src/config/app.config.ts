@@ -13,4 +13,8 @@ export default registerAs('appConfig', () => ({
   // Storage
   uploadDir: process.env.UPLOAD_DIR || './uploads/passports',
   baseUrl: process.env.BASE_URL || 'http://localhost:3001',
+
+  // Azure
+  azureStorageConnectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
+  azureStorageContainerName: process.env.AZURE_STORAGE_CONTAINER_NAME || 'passports',
 }));

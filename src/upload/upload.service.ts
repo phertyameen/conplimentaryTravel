@@ -9,8 +9,8 @@ export class UploadService {
   constructor(private readonly storageService: StorageService) {}
 
   /**
-   * Validates and stores a single passport file.
-   * Returns the stored file URL and original filename.
+   * Validates a single file then uploads it to Azure Blob Storage.
+   * Returns the blob URL and original filename.
    */
   async validateAndStore(
     file: Express.Multer.File,
@@ -20,13 +20,13 @@ export class UploadService {
     this.validateFileSize(file, travelerIndex);
 
     const url = await this.storageService.save(file);
-
     return { url, fileName: file.originalname };
   }
 
   /**
-   * Validates and stores multiple passport files.
-   * files[0] = primary traveler, files[1–2] = additional travelers.
+   * Validates and uploads all passport files to Azure Blob Storage.
+   * files[0] → primary traveler, files[1-2] → additional travelers.
+   * Returns array of { url, fileName } in the same order.
    */
   async validateAndStoreMany(
     files: Express.Multer.File[],
@@ -36,6 +36,10 @@ export class UploadService {
     );
   }
 
+  /**
+   * Validates files only — no upload.
+   * Used for pre-flight checks before any storage operation.
+   */
   validateMany(files: Express.Multer.File[]): void {
     files.forEach((file, index) => {
       this.validateMimeType(file, index);
@@ -43,7 +47,8 @@ export class UploadService {
     });
   }
 
-  // Private Helpers
+  // ─── Private Helpers ──────────────────────────────────────────────────────
+
   private validateMimeType(file: Express.Multer.File, index: number): void {
     if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
       throw new BadRequestException(

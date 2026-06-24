@@ -18,17 +18,17 @@ export class CreateRegistrationDto {
   @ApiProperty({ example: 'Adaeze Okonkwo', description: 'Full name as registered in the cooperative scheme' })
   @IsString()
   @IsNotEmpty({ message: 'Cooperator full name is NOT optional' })
-  cooperatorFullName?: string;
+  cooperatorFullName: string;
 
   @ApiProperty({ example: 'adaeze.okonkwo@example.com' })
   @IsEmail({}, { message: 'A valid cooperator email address is required' })
   @IsNotEmpty({ message: 'Cooperator email address is NOT optional' })
-  cooperatorEmail?: string;
+  cooperatorEmail: string;
 
   @ApiProperty({ example: 'Seplet Bank Staff Cooperative' })
   @IsString()
   @IsNotEmpty({ message: 'Cooperative scheme name is NOT optional' })
-  cooperatorSchemeName?: string;
+  cooperatorSchemeName: string;
 
   // SECTION 2: TRAVELER DETAILS
   // Index 0 = primary traveler (always required)

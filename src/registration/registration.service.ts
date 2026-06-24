@@ -37,7 +37,8 @@ export class RegistrationService {
     dto: CreateRegistrationDto,
     passportFiles: Express.Multer.File[],
   ): Promise<{ referenceNumber: string }> {
-    // 1. Validate traveler count vs uploaded files
+
+    // 1. Validate traveler count matches uploaded files
     if (passportFiles.length !== dto.travelers.length) {
       throw new BadRequestException(
         `Expected ${dto.travelers.length} passport file(s), received ${passportFiles.length}.`,
@@ -47,17 +48,21 @@ export class RegistrationService {
     // 2. Validate date logic for each traveler
     this.validateTravelerDates(dto);
 
-    // 3. Validate & store all passport files
+    // 3. Validate files then upload all to Azure Blob Storage
+    // validateAndStoreMany validates MIME + size, then uploads each file.
+    // Returns [{ url, fileName }, ...] in the same order as passportFiles.
+    let storedFiles: Array<{ url: string; fileName: string }>;
     try {
-      this.uploadService.validateMany(passportFiles);
+      storedFiles = await this.uploadService.validateAndStoreMany(passportFiles);
     } catch (error) {
-      throw error;
+      throw error; // BadRequestException from UploadService — propagate as-is
     }
 
     // 4. Generate unique reference number
     const referenceNumber = await this.generateUniqueReference();
 
-    // 5. Persist registration and travelers
+    // 5. Persist registration + travelers to DB
+    // If DB save fails, clean up already-uploaded blobs to avoid orphaned files
     let savedRegistration: RegistrationEntity;
     try {
       const registration = this.registrationRepo.create({
@@ -69,7 +74,7 @@ export class RegistrationService {
 
       const travelers: TravelerEntity[] = dto.travelers.map(
         (travelerDto, index) => {
-          const traveler = this.travelerRepo.create({
+          return this.travelerRepo.create({
             travelerIndex: index,
             fullName: travelerDto.fullName,
             email: travelerDto.email,
@@ -78,24 +83,29 @@ export class RegistrationService {
             destinations: JSON.stringify(travelerDto.destinations),
             departureDate: travelerDto.departureDate,
             returnDate: travelerDto.returnDate,
-            passportFileName: passportFiles[index].originalname,
+            passportFileUrl: storedFiles[index].url,       // ← Azure Blob URL
+            passportFileName: storedFiles[index].fileName, // ← original filename
           });
-          return traveler;
         },
       );
 
       registration.travelers = travelers;
       savedRegistration = await this.registrationRepo.save(registration);
+      this.logger.log(`Registration saved. Ref: ${referenceNumber}`);
     } catch (error) {
-      this.logger.error('DB save failed', error);
+      // DB failed — delete all uploaded blobs to avoid orphaned files in Azure
+      this.logger.error('DB save failed — cleaning up Azure blobs', error);
+      await Promise.allSettled(
+        storedFiles.map((f) => this.storageService.delete(f.url)),
+      );
       throw new InternalServerErrorException(
         'Registration could not be saved. Please try again.',
       );
     }
 
     // ── 6. Build traveler mail data ───────────────────────────────────────
-    const travelerMailData: TravelerMailData[] =
-      savedRegistration.travelers.map((t, index) => ({
+    const travelerMailData: TravelerMailData[] = savedRegistration.travelers.map(
+      (t, index) => ({
         travelerIndex: t.travelerIndex,
         fullName: t.fullName,
         email: t.email,
@@ -104,12 +114,14 @@ export class RegistrationService {
         destinations: JSON.parse(t.destinations),
         departureDate: t.departureDate,
         returnDate: t.returnDate,
+        passportFileUrl: t.passportFileUrl,     // ← Azure Blob URL (for email link + Excel)
         passportFileName: t.passportFileName,
-        passportFileExt: passportFiles[index].originalname.substring(
-          passportFiles[index].originalname.lastIndexOf('.'),
+        passportFileExt: t.passportFileName.substring(
+          t.passportFileName.lastIndexOf('.'),
         ),
-        passportBuffer: passportFiles[index].buffer,
-      }));
+        passportBuffer: passportFiles[index].buffer, // ← raw buffer (for email attachment)
+      }),
+    );
 
     // ── 7. Generate Excel attachment ──────────────────────────────────────
     const excelBuffer = await this.exportService.generateRegistrationExcel({
@@ -123,7 +135,7 @@ export class RegistrationService {
 
     const excelFileName = `Registration-${referenceNumber}.xlsx`;
 
-    // 8. Send emails (non-blocking - DB record already safe)
+    // ── 8. Send emails (non-blocking — DB record already safe) ───────────
     await Promise.allSettled([
       // FRD 3: Cooperator confirmation
       this.mailService.sendCooperatorConfirmation({
@@ -151,11 +163,11 @@ export class RegistrationService {
       }),
     ]);
 
-    // 9. Return success response
+    // ── 9. Return success ─────────────────────────────────────────────────
     return { referenceNumber: savedRegistration.referenceNumber };
   }
 
-  // Private Helpers
+  // ─── Private Helpers ─────────────────────────────────────────────────────
 
   private validateTravelerDates(dto: CreateRegistrationDto): void {
     const today = new Date();
@@ -181,7 +193,6 @@ export class RegistrationService {
   }
 
   private async generateUniqueReference(): Promise<string> {
-    // Retry up to 5 times on collision (extremely rare with 36^4 = 1.6M combinations per day)
     for (let attempt = 0; attempt < 5; attempt++) {
       const ref = generateReferenceNumber();
       const exists = await this.registrationRepo.findOne({
