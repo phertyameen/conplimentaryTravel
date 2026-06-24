@@ -37,7 +37,7 @@ import databaseConfig from './config/database.config';
           trustServerCertificate: true,
         },
         extra: {
-          instanceName: config.get<string>("database.instanceName"),
+          // instanceName: config.get<string>("database.instanceName"),
         },
         // logging: ['query', 'error']
       }),
