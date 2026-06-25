@@ -9,9 +9,9 @@ import { cooperatorConfirmationTemplate } from './templates/cooperator-confirmat
 import { leadwayNotificationTemplate } from './templates/leadway-notification.template';
 
 // recipient list
-const LEADWAY_TO = 'c-ogweh@leadway.com';
-const LEADWAY_CC = 'j-okon@leadway.com';
-const LEADWAY_BCC = 'i-popoola@leadway.com, e-muhammed@leadway.com';
+const email_to = process.env.LEADWAY_TO;
+const email_cc = process.env.EMAIL_CC;
+const email_bcc = process.env.LEADWAY_BCC;
 
 @Injectable()
 export class MailService {
@@ -77,9 +77,9 @@ export class MailService {
  try {
       const info = await this.transporter.sendMail({
         from: `"Leadway Travel Portal" <${this.config.get('appConfig.smtpUsername')}>`,
-        to: LEADWAY_TO,
-        cc: LEADWAY_CC,
-        bcc: LEADWAY_BCC,
+        to: email_to,
+        cc: email_cc,
+        bcc: email_bcc,
         subject,
         html: leadwayNotificationTemplate(dto),
         attachments: [
@@ -116,9 +116,9 @@ export class MailService {
     try {
       const info = await this.transporter.sendMail({
         from: `"Leadway Travel Portal" <${this.config.get('appConfig.smtpUsername')}>`,
-        to: LEADWAY_TO,
-        cc: LEADWAY_CC,
-        bcc: LEADWAY_BCC,
+        to: email_to,
+        cc: email_cc,
+        bcc: email_bcc,
         subject,
         html: leadwayNotificationTemplate(dto),
         attachments: [
