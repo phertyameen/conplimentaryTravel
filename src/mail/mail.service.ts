@@ -8,15 +8,20 @@ import {
 import { cooperatorConfirmationTemplate } from './templates/cooperator-confirmation.template';
 import { leadwayNotificationTemplate } from './templates/leadway-notification.template';
 
-// recipient list
-const email_to = process.env.LEADWAY_TO;
-const email_cc = process.env.EMAIL_CC;
-const email_bcc = process.env.LEADWAY_BCC;
-
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: Transporter;
+
+  private get leadwayTo(): string {
+    return this.config.get<string>('appConfig.leadwayTo') || '';
+  }
+  private get leadwayCC(): string {
+    return this.config.get<string>('appConfig.leadwayCC') || '';
+  }
+  private get leadwayBCC(): string {
+    return this.config.get<string>('appConfig.leadwayBCC') || '';
+  }
 
   constructor(private readonly config: ConfigService) {
     this.transporter = nodemailer.createTransport({
@@ -74,12 +79,20 @@ export class MailService {
     dto: LeadwayNotificationMailDto,
   ): Promise<void> {
     const subject = `New Submission - ${dto.cooperatorSchemeName} ${dto.cooperatorFullName} - Ref: ${dto.referenceNumber}`;
- try {
+
+    if (!this.leadwayTo) {
+      this.logger.error(
+        `LEADWAY_TO is not set — Leadway notification skipped. Ref: ${dto.referenceNumber}`,
+      );
+      return;
+    }
+
+    try {
       const info = await this.transporter.sendMail({
         from: `"Leadway Travel Portal" <${this.config.get('appConfig.smtpUsername')}>`,
-        to: email_to,
-        cc: email_cc,
-        bcc: email_bcc,
+        to: this.leadwayTo,
+        cc: this.leadwayCC || undefined,
+        bcc: this.leadwayBCC || undefined,
         subject,
         html: leadwayNotificationTemplate(dto),
         attachments: [
@@ -97,12 +110,12 @@ export class MailService {
           })),
         ],
       });
- 
+
       this.logger.log(
         `Leadway notification sent. Ref: ${dto.referenceNumber} | messageId: ${info.messageId}`,
       );
- 
-      // Dev: Ethereal preview URL
+
+      // Dev: smtp preview URL
       const previewUrl = nodemailer.getTestMessageUrl(info);
       if (previewUrl) {
         this.logger.log(`Leadway email preview: ${previewUrl}`);
@@ -110,37 +123,6 @@ export class MailService {
     } catch (error) {
       this.logger.error(
         `Failed to send Leadway notification. Ref: ${dto.referenceNumber}`,
-        error,
-      );
-    }
-    try {
-      const info = await this.transporter.sendMail({
-        from: `"Leadway Travel Portal" <${this.config.get('appConfig.smtpUsername')}>`,
-        to: email_to,
-        cc: email_cc,
-        bcc: email_bcc,
-        subject,
-        html: leadwayNotificationTemplate(dto),
-        attachments: [
-          {
-            filename: dto.excelAttachmentFileName,
-            content: dto.excelAttachmentBuffer,
-            contentType:
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          },
-          ...dto.travelers.map((traveler, index) => ({
-            filename: `Traveler_${index + 1}_${traveler.fullName}_passport${traveler.passportFileExt}`,
-            content: traveler.passportBuffer,
-          })),
-        ],
-      });
-
-      this.logger.log(
-        `Leadway notification email sent. Ref: ${dto.referenceNumber} | messageId: ${info.messageId}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to send Leadway notification email. Ref: ${dto.referenceNumber}`,
         error,
       );
     }

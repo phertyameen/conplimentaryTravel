@@ -10,6 +10,11 @@ export default registerAs('appConfig', () => ({
   smtpPassword: process.env.SMTP_PASSWORD,
   mailSecure: process.env.MAIL_SECURE === 'true',
 
+  // Leadway recipients
+  leadwayTo:  process.env.LEADWAY_TO,
+  leadwayCC:  process.env.LEADWAY_CC,
+  leadwayBCC: process.env.LEADWAY_BCC,
+
   // Azure
   azureStorageConnectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
   azureStorageContainerName: process.env.AZURE_STORAGE_CONTAINER_NAME || 'passports',

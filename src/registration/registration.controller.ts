@@ -8,6 +8,7 @@ import {
   HttpStatus,
   BadRequestException,
   Delete,
+  Get,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -144,6 +145,19 @@ export class RegistrationController {
       referenceNumber,
       message:
         'Registration successful. A confirmation email has been sent to your email address.',
+    };
+  }
+
+  @Get('travelers')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get all travelers' })
+  @ApiResponse({ status: 200, description: 'List of all travelers.' })
+  async getAllTravelers() {
+    const travelers = await this.registrationService.getAllTravelers();
+    return {
+      success: true,
+      count: travelers.length,
+      data: travelers,
     };
   }
 }

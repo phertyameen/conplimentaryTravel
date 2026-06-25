@@ -242,4 +242,10 @@ export class RegistrationService {
     this.logger.log(`Deleted all ${count} traveler record(s) and their blobs.`);
     return { deleted: count };
   }
+
+  async getAllTravelers(): Promise<TravelerEntity[]> {
+  return this.travelerRepo.find({
+    relations: { registration: true },
+  });
+}
 }
