@@ -1,33 +1,51 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger"
-import { ValidationPipe, Logger, ClassSerializerInterceptor } from "@nestjs/common"
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ValidationPipe, Logger, ClassSerializerInterceptor } from '@nestjs/common';
 import { GlobalExceptionFilter } from './common/global-exception.filter';
 
 async function bootstrap() {
-  const logger = new Logger("Bootstrap")
+  const logger = new Logger('Bootstrap');
 
   try {
-    const app = await NestFactory.create(AppModule)
+    const app = await NestFactory.create(AppModule);
 
-    const port = process.env.PORT ?? 3001
+    const port = process.env.PORT ?? 3001;
+    const env = process.env.NODE_ENV || 'development';
 
-    const config = new DocumentBuilder()
-      .setTitle("Complimentary Travel Insurance API: Documentation")
-      .setDescription("Api is setup for Complimentary Travel Insurance")
-      .addServer("")
-      .build()
+    app.setGlobalPrefix('api/v1');
 
-
-    const document = SwaggerModule.createDocument(app, config)
-    SwaggerModule.setup("api", app, document)
+    // In development: allow all origins
+    // In production: restrict to the frontend domain via ALLOWED_ORIGINS env var
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+      : [];
 
     app.enableCors({
-      origin: true,
-      methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+      origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, curl, Postman, server-to-server)
+        if (!origin) return callback(null, true);
+
+        if (env === 'development') {
+          // Allow all origins in development
+          return callback(null, true);
+        }
+
+        // Production: only allow listed origins
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+
+        logger.warn(`CORS blocked request from origin: ${origin}`);
+        return callback(new Error(`Origin ${origin} is not allowed by CORS`), false);
+      },
+      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
       credentials: true,
-      allowedHeaders: ["Content-Type", "Authorization"],
-    })
+      maxAge: 86400, // preflight cache: 24 hours
+    });
+
+    app.useGlobalFilters(new GlobalExceptionFilter());
 
     app.useGlobalPipes(
       new ValidationPipe({
@@ -38,17 +56,28 @@ async function bootstrap() {
           enableImplicitConversion: true,
         },
       }),
-    )
+    );
 
-    app.useGlobalFilters(new GlobalExceptionFilter());
-    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
+    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
-    await app.listen(port)
-    logger.log(`Application is running on: http://localhost:${port}`)
-    logger.log(`Swagger documentation available at: http://localhost:${port}/api`)
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Complimentary Travel Insurance API')
+      .setDescription('API for the Leadway Complimentary Travel Insurance Portal')
+      .setVersion('1.0')
+      .addServer('')
+      .build();
+
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+
+    await app.listen(port);
+    logger.log(`Environment: ${env}`);
+    logger.log(`Application running on: http://localhost:${port}`);
+    logger.log(`Swagger docs: http://localhost:${port}/api/docs`);
+    logger.log(`Endpoint: POST http://localhost:${port}/api/v1/registrations`);
   } catch (error) {
-    logger.error("Error starting application:", error)
-    process.exit(1)
+    logger.error('Error starting application:', error);
+    process.exit(1);
   }
 }
-bootstrap()
+bootstrap();

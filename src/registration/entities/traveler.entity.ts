@@ -48,11 +48,17 @@ export class TravelerEntity {
   @Column({ name: 'return_date', type: 'date' })
   returnDate: string;
 
-  // Azure Blob Storage public URL for the passport file
+  // Base Azure Blob URL (no SAS) stored in DB
+  // Use StorageService.generateSasUrl(blobName) to get a viewable link
   @Column({ name: 'passport_file_url', type: 'nvarchar', length: 1000 })
   passportFileUrl: string;
 
-  // Original filename e.g. "john_doe_passport.pdf"
+  // Blob name used to generate SAS tokens on demand
+  // e.g. "John_Doe_a1b2c3d4.pdf"
+  @Column({ name: 'passport_blob_name', type: 'nvarchar', length: 500 })
+  passportBlobName: string;
+
+  // Original filename uploaded by the user
   @Column({ name: 'passport_file_name', length: 255 })
   passportFileName: string;
 }

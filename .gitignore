@@ -4,6 +4,9 @@
 /build
 /uploads/passports*
 
+# http endpoint
+test.endpoint.http
+
 # Logs
 logs
 *.log

@@ -1,33 +1,42 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BlobServiceClient, ContainerClient, BlockBlobClient } from '@azure/storage-blob';
+import {
+  BlobServiceClient,
+  ContainerClient,
+  BlockBlobClient,
+  StorageSharedKeyCredential,
+  generateBlobSASQueryParameters,
+  BlobSASPermissions,
+} from '@azure/storage-blob';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
- * StorageService: Azure Blob Storage implementation.
+ * StorageService - Azure Blob Storage with SAS Token access.
  *
- * Each uploaded passport file is stored in a dedicated Azure Blob container.
- * The public URL returned is saved to the Traveler entity in the DB and
- * included in the Leadway notification email and Excel export.
- *
- * Container access: set to "Blob" (public read) in Azure Portal so URLs
- * are directly accessible without SAS tokens.
- * For private containers, replace getPublicUrl() with generateSasUrl().
+ * Container is PRIVATE - no public access.
+ * Files are accessed via time-limited SAS tokens generated on demand.
+ * SAS token approach follows: https://dev.to/vaibhav9017/generate-sas-token-for-azure-api-management-using-node-js-3gl2
  */
 @Injectable()
 export class StorageService {
   private readonly logger = new Logger(StorageService.name);
   private readonly containerClient: ContainerClient;
   private readonly containerName: string;
+  private readonly accountName: string;
+  private readonly accountKey: string;
 
   constructor(private readonly config: ConfigService) {
     const connectionString = this.config.get<string>(
       'appConfig.azureStorageConnectionString',
     );
-    this.containerName = this.config.get<string>(
-      'appConfig.azureStorageContainerName',
-    ) || 'passports';
+    this.containerName =
+      this.config.get<string>('appConfig.azureStorageContainerName') ||
+      'passports';
 
     if (!connectionString) {
       throw new Error(
@@ -35,21 +44,42 @@ export class StorageService {
       );
     }
 
-    const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
-    this.containerClient = blobServiceClient.getContainerClient(this.containerName);
+    // Parse account name and key from connection string
+    // Format: DefaultEndpointsProtocol=https;AccountName=xxx;AccountKey=yyy;...
+    this.accountName = this.extractFromConnectionString(
+      connectionString,
+      'AccountName',
+    );
+    this.accountKey = this.extractFromConnectionString(
+      connectionString,
+      'AccountKey',
+    );
+
+    const blobServiceClient =
+      BlobServiceClient.fromConnectionString(connectionString);
+    this.containerClient = blobServiceClient.getContainerClient(
+      this.containerName,
+    );
   }
 
   /**
-   * Uploads a file buffer to Azure Blob Storage.
-   * Returns the public URL of the stored blob.
+   * Uploads a file buffer to Azure Blob Storage (private container).
+   * Blob name is built from the traveler's full name + uuid + extension
+   * e.g. "John_Doe_a1b2c3d4.pdf"
+   *
+   * Returns the plain blob URL (no SAS - call generateSasUrl() to view).
    */
-  async save(file: Express.Multer.File): Promise<string> {
+  async save(
+    file: Express.Multer.File,
+    travelerFullName: string,
+  ): Promise<{ blobUrl: string; blobName: string }> {
     try {
-      // Ensure container exists (idempotent — safe to call every time)
-      await this.containerClient.createIfNotExists({ access: 'blob' });
+      // Private container - no public access
+      await this.containerClient.createIfNotExists();
 
       const ext = path.extname(file.originalname);
-      const blobName = `${uuidv4()}${ext}`;
+      const safeName = this.sanitizeName(travelerFullName);
+      const blobName = `${safeName}_${uuidv4()}${ext}`;
 
       const blockBlobClient: BlockBlobClient =
         this.containerClient.getBlockBlobClient(blobName);
@@ -60,9 +90,12 @@ export class StorageService {
         },
       });
 
-      const url = blockBlobClient.url;
-      this.logger.log(`File uploaded to Azure Blob: ${url}`);
-      return url;
+      this.logger.log(`Uploaded to Azure Blob: ${blobName}`);
+
+      return {
+        blobUrl: blockBlobClient.url, // base URL (no SAS)
+        blobName,
+      };
     } catch (error) {
       this.logger.error('Failed to upload file to Azure Blob Storage', error);
       throw new InternalServerErrorException(
@@ -72,28 +105,89 @@ export class StorageService {
   }
 
   /**
-   * Deletes a blob by its full URL.
+   * Generates a time-limited SAS token URL for a blob.
+   * Grants read-only access for the specified duration (default 1 hour).
+   *
+   * Reference: https://dev.to/vaibhav9017/generate-sas-token-for-azure-api-management-using-node-js-3gl2
+   *
+   * @param blobName - the blob name stored in DB (e.g. "John_Doe_uuid.pdf")
+   * @param expiryMinutes - how long the link is valid (default 60 minutes)
+   * @returns full SAS URL the user can open directly in browser
+   */
+  generateSasUrl(blobName: string, expiryMinutes = 60): string {
+    const sharedKeyCredential = new StorageSharedKeyCredential(
+      this.accountName,
+      this.accountKey,
+    );
+
+    const startsOn = new Date();
+    const expiresOn = new Date(startsOn);
+    expiresOn.setMinutes(expiresOn.getMinutes() + expiryMinutes);
+
+    const sasToken = generateBlobSASQueryParameters(
+      {
+        containerName: this.containerName,
+        blobName,
+        permissions: BlobSASPermissions.parse('r'), // read-only
+        startsOn,
+        expiresOn,
+      },
+      sharedKeyCredential,
+    ).toString();
+
+    const sasUrl = `https://${this.accountName}.blob.core.windows.net/${this.containerName}/${blobName}?${sasToken}`;
+
+    this.logger.log(
+      `SAS URL generated for blob: ${blobName} (expires in ${expiryMinutes} min)`,
+    );
+
+    return sasUrl;
+  }
+
+  /**
+   * Deletes a blob by its name.
    * Used for cleanup when DB save fails after upload.
    */
-  async delete(fileUrl: string): Promise<void> {
+  async delete(blobName: string): Promise<void> {
     try {
-      const blobName = this.extractBlobName(fileUrl);
       const blockBlobClient = this.containerClient.getBlockBlobClient(blobName);
       await blockBlobClient.deleteIfExists();
       this.logger.log(`Blob deleted: ${blobName}`);
     } catch (error) {
-      this.logger.warn(`Could not delete blob at URL: ${fileUrl}`, error);
+      this.logger.warn(`Could not delete blob: ${blobName}`, error);
     }
   }
 
-  // Private Helpers
+  /**
+   * Converts a traveler name to a safe blob name segment.
+   * e.g. "John Doe-Smith" → "John_Doe-Smith"
+   */
+  private sanitizeName(name: string): string {
+    return name
+      .trim()
+      .replace(/\s+/g, '_') // spaces → underscores
+      .replace(/[^a-zA-Z0-9_\-]/g, '') // remove special chars
+      .substring(0, 50); // cap length
+  }
 
   /**
-   * Extracts blob name from a full Azure Blob URL.
-   * e.g. https://account.blob.core.windows.net/passports/abc.pdf → abc.pdf
+   * Extracts a value from an Azure connection string.
+   * e.g. extractFromConnectionString(str, 'AccountName') → 'mystorageaccount'
    */
-  private extractBlobName(fileUrl: string): string {
-    const parts = fileUrl.split('/');
-    return parts[parts.length - 1];
+  private extractFromConnectionString(
+    connectionString: string,
+    key: string,
+  ): string {
+    const match = connectionString
+      .split(';')
+      .find((part) => part.startsWith(`${key}=`));
+
+    if (!match) {
+      throw new Error(
+        `Could not extract ${key} from AZURE_STORAGE_CONNECTION_STRING.`,
+      );
+    }
+
+    return match.split('=').slice(1).join('='); // handles keys with '=' in value
   }
 }
