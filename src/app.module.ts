@@ -39,7 +39,7 @@ import databaseConfig from './config/database.config';
         extra: {
           // instanceName: config.get<string>("database.instanceName"),
         },
-        // logging: ['query', 'error']
+          // logging: ['query', 'error']
       }),
     }),
 

@@ -12,6 +12,7 @@ async function bootstrap() {
 
     const port = process.env.PORT ?? 3001;
     const env = process.env.NODE_ENV || 'development';
+    const host = process.env.BASE_URL || 'http://localhost';
 
     app.setGlobalPrefix('api/v1');
 
@@ -72,9 +73,9 @@ async function bootstrap() {
 
     await app.listen(port);
     logger.log(`Environment: ${env}`);
-    logger.log(`Application running on: http://localhost:${port}`);
-    logger.log(`Swagger docs: http://localhost:${port}/api/docs`);
-    logger.log(`Endpoint: POST http://localhost:${port}/api/v1/registrations`);
+    logger.log(`Application running on: ${host}:${port}`);
+    logger.log(`Swagger docs: ${host}:${port}/api/docs`);
+    logger.log(`Endpoint: POST ${host}:${port}/api/v1/registrations`);
   } catch (error) {
     logger.error('Error starting application:', error);
     process.exit(1);
