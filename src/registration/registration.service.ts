@@ -38,29 +38,17 @@ export class RegistrationService {
     dto: CreateRegistrationDto,
     passportFiles: Express.Multer.File[],
   ): Promise<{ referenceNumber: string }> {
-    // 1. Check cooperator email uniqueness
-    // Requirement: if cooperator email already exists, return conflict error
-    const existingRegistration = await this.registrationRepo.findOne({
-      where: { cooperatorEmail: dto.cooperatorEmail },
-    });
-    if (existingRegistration) {
-      throw new ConflictException(
-        `A registration already exists for the email address: ${dto.cooperatorEmail}. ` +
-          `Reference number: ${existingRegistration.referenceNumber}.`,
-      );
-    }
-
-    // 2. Validate traveler count matches uploaded files
+    // 1. Validate traveler count matches uploaded files
     if (passportFiles.length !== dto.travelers.length) {
       throw new BadRequestException(
         `Expected ${dto.travelers.length} passport file(s), received ${passportFiles.length}.`,
       );
     }
 
-    // 3. Validate date logic for each traveler
+    // 2. Validate date logic for each traveler
     this.validateTravelerDates(dto);
 
-    // 4. Validate & upload all passport files to Azure Blob
+    // 3. Validate & upload all passport files to Azure Blob
     // Blob names are built from traveler full names for easy identification.
     // e.g. "John_Doe_a1b2c3d4.pdf"
     const travelerNames = dto.travelers.map((t) => t.fullName);
@@ -78,10 +66,10 @@ export class RegistrationService {
       throw error; // BadRequestException from UploadService — propagate as-is
     }
 
-    // 5. Generate unique reference number
+    // 4. Generate unique reference number
     const referenceNumber = await this.generateUniqueReference();
 
-    // 6. Persist registration + travelers to DB
+    // 5. Persist registration + travelers to DB
     // If DB save fails, clean up uploaded blobs to avoid orphans in Azure
     let savedRegistration: RegistrationEntity;
     try {
@@ -123,7 +111,7 @@ export class RegistrationService {
       );
     }
 
-    // 7. Build traveler mail data
+    // 6. Build traveler mail data
     // Generate SAS URLs for each passport: valid for 24 hours in the email
     const travelerMailData: TravelerMailData[] =
       savedRegistration.travelers.map((t, index) => ({
@@ -146,7 +134,7 @@ export class RegistrationService {
         passportBuffer: passportFiles[index].buffer,
       }));
 
-    // 8. Generate Excel attachment
+    // 7. Generate Excel attachment
     const excelBuffer = await this.exportService.generateRegistrationExcel({
       cooperatorFullName: savedRegistration.cooperatorFullName,
       cooperatorEmail: savedRegistration.cooperatorEmail,
